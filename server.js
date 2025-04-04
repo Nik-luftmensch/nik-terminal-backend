@@ -22,21 +22,26 @@ const server = http.createServer((req, res) => {
   }
 });
 
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ noServer: true });
 
 let userSocket = null;
 let adminSocket = null;
 
-wss.on("connection", (ws, req) => {
-  const isAdmin = req.url === "/admin";
+server.on("upgrade", (req, socket, head) => {
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    const isAdmin = req.url === "/admin";
+    wss.emit("connection", ws, req, isAdmin);
+  });
+});
 
+wss.on("connection", (ws, req, isAdmin) => {
   if (isAdmin) {
     console.log("✅ Admin connected");
     adminSocket = ws;
 
     ws.on("message", (msg) => {
       if (userSocket && userSocket.readyState === WebSocket.OPEN) {
-        userSocket.send(msg);
+        userSocket.send(msg); // admin ➝ user
       }
     });
 
@@ -51,7 +56,7 @@ wss.on("connection", (ws, req) => {
     ws.on("message", (msg) => {
       console.log("👤 User:", msg);
       if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {
-        adminSocket.send(`User: ${msg}`);
+        adminSocket.send(`User: ${msg}`); // user ➝ admin
       }
     });
 
