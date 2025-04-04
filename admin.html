@@ -84,8 +84,8 @@
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && input.value.trim() !== "") {
         const message = input.value.trim();
-        socket.send(message);
-        appendToChat("You: " + message);
+        socket.send(message);  // Sending message to backend
+        appendToChat("You: " + message);  // Show in chat immediately
         input.value = "";
         clearTypingStatus();
       }
@@ -93,7 +93,7 @@
 
     input.addEventListener("input", () => {
       if (socket.readyState === WebSocket.OPEN) {
-        socket.send("__typing__");
+        socket.send("__typing__");  // Emit typing status to backend
       }
       clearTimeout(typingTimeout);
       typingTimeout = setTimeout(() => {

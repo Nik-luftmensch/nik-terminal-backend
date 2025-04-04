@@ -69,7 +69,7 @@ wss.on("connection", (ws, req, isAdmin) => {
 
         // User identity info
         if (msg.type === "identity") {
-          userLabel = `${msg.location}@${msg.ip}_User`;
+          userLabel = `${msg.location}@${msg.ip}_${msg.name || "User"}`;
           console.log("🆔 User identified as:", userLabel);
           return;
         }
@@ -81,12 +81,16 @@ wss.on("connection", (ws, req, isAdmin) => {
           }
           return;
         }
+
+        // If message is a chat message from the user
+        if (msg.type === "chat") {
+          const message = `${userLabel}: ${msg.message}`;
+          if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {
+            adminSocket.send(message);
+          }
+        }
       } catch {
         // If it's not JSON, treat it as a plain message
-      }
-
-      if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {
-        adminSocket.send(`${userLabel}: ${raw}`);
       }
     });
 
