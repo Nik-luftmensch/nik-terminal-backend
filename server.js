@@ -61,15 +61,15 @@ wss.on("connection", (ws, req, isAdmin) => {
   } else {
     console.log("✅ User connected");
     userSocket = ws;
-    let userLabel = "User";
+    let userLabel = "User"; // Default user label
 
     ws.on("message", (raw) => {
       try {
         const msg = JSON.parse(raw);
 
-        // User identity info
+        // User identity info received from secure_handshake command
         if (msg.type === "identity") {
-          userLabel = `${msg.location}@${msg.ip}_${msg.name || "User"}`;
+          userLabel = `${msg.location}@${msg.ip}_${msg.name || "User"}`;  // Use user’s alias (e.g., 'alex')
           console.log("🆔 User identified as:", userLabel);
           return;
         }
