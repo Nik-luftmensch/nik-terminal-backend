@@ -71,7 +71,7 @@
         msg = await event.data.text(); // handle Blob case
       }
 
-      appendToChat("User: " + msg);
+      appendToChat(msg); // ✅ no \"User:\" prefix here — server already sends it
     };
 
     input.addEventListener("keydown", (e) => {

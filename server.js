@@ -41,7 +41,7 @@ wss.on("connection", (ws, req, isAdmin) => {
 
     ws.on("message", (msg) => {
       if (userSocket && userSocket.readyState === WebSocket.OPEN) {
-        userSocket.send(msg); // admin ➝ user
+        userSocket.send(msg);
       }
     });
 
@@ -52,11 +52,22 @@ wss.on("connection", (ws, req, isAdmin) => {
   } else {
     console.log("✅ User connected");
     userSocket = ws;
+    let userLabel = "User";
 
-    ws.on("message", (msg) => {
-      console.log("👤 User:", msg);
+    ws.on("message", (raw) => {
+      try {
+        const msg = JSON.parse(raw);
+        if (msg.type === "identity") {
+          userLabel = `${msg.location}@${msg.ip}_User`;
+          console.log("🆔 User identified as:", userLabel);
+          return;
+        }
+      } catch {
+        // If it's not JSON, treat it as a normal message
+      }
+
       if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {
-        adminSocket.send(`User: ${msg}`); // user ➝ admin
+        adminSocket.send(`${userLabel}: ${raw}`);
       }
     });
 
