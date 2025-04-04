@@ -70,16 +70,23 @@
     };
 
     socket.onmessage = async (event) => {
-      let msg = typeof event.data === "string" ? event.data : await event.data.text();
-
-      if (msg === "__user_typing__") {
-        showTypingStatus("User is typing...");
-        return;
-      }
-
-      clearTypingStatus();
-      appendToChat(msg);
-    };
+        let msg = typeof event.data === "string" ? event.data : await event.data.text();
+      
+        if (msg === "__user_typing__") {
+          showTypingStatus("User is typing...");
+          return;
+        }
+      
+        clearTypingStatus();
+      
+        // If message contains the alias, it will display the name (i.e., 'alex')
+        const userMessage = msg.split(": ");
+        const userName = userMessage[0];
+        const message = userMessage[1];
+      
+        // Display message with user's name (e.g., 'alex: Hello')
+        appendToChat(`${userName}: ${message}`);
+      };
 
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && input.value.trim() !== "") {

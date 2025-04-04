@@ -86,7 +86,7 @@ wss.on("connection", (ws, req, isAdmin) => {
         if (msg.type === "chat") {
           const message = `${userLabel}: ${msg.message}`;
           if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {
-            adminSocket.send(message);
+            adminSocket.send(message);  // Send to admin
           }
         }
       } catch {
