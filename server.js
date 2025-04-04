@@ -40,6 +40,15 @@ wss.on("connection", (ws, req, isAdmin) => {
     adminSocket = ws;
 
     ws.on("message", (msg) => {
+      // Typing event from admin
+      if (msg === "__typing__") {
+        if (userSocket && userSocket.readyState === WebSocket.OPEN) {
+          userSocket.send("__admin_typing__");
+        }
+        return;
+      }
+
+      // Message to user
       if (userSocket && userSocket.readyState === WebSocket.OPEN) {
         userSocket.send(msg);
       }
@@ -57,13 +66,23 @@ wss.on("connection", (ws, req, isAdmin) => {
     ws.on("message", (raw) => {
       try {
         const msg = JSON.parse(raw);
+
+        // User identity info
         if (msg.type === "identity") {
           userLabel = `${msg.location}@${msg.ip}_User`;
           console.log("🆔 User identified as:", userLabel);
           return;
         }
+
+        // Typing event from user
+        if (msg.type === "typing") {
+          if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {
+            adminSocket.send("__user_typing__");
+          }
+          return;
+        }
       } catch {
-        // If it's not JSON, treat it as a normal message
+        // If it's not JSON, treat it as a plain message
       }
 
       if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {

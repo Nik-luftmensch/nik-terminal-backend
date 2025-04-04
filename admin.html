@@ -38,16 +38,22 @@
       outline: none;
       border-color: #5f5;
     }
+
+    .typing-indicator {
+      font-style: italic;
+      color: #5f5;
+    }
   </style>
 </head>
 <body>
-  <h2>💬 Admin Chat Interface</h2>
+  <h2>💬 Portfolio Chat Interface</h2>
   <div id="chat"></div>
   <input type="text" id="messageInput" placeholder="Type message and press Enter..." />
 
   <script>
     const chatBox = document.getElementById("chat");
     const input = document.getElementById("messageInput");
+    let typingTimeout;
 
     const socket = new WebSocket(`wss://${window.location.host}/admin`);
 
@@ -64,14 +70,15 @@
     };
 
     socket.onmessage = async (event) => {
-      let msg;
-      if (typeof event.data === "string") {
-        msg = event.data;
-      } else {
-        msg = await event.data.text(); // handle Blob case
+      let msg = typeof event.data === "string" ? event.data : await event.data.text();
+
+      if (msg === "__user_typing__") {
+        showTypingStatus("User is typing...");
+        return;
       }
 
-      appendToChat(msg); // ✅ no \"User:\" prefix here — server already sends it
+      clearTypingStatus();
+      appendToChat(msg);
     };
 
     input.addEventListener("keydown", (e) => {
@@ -80,7 +87,18 @@
         socket.send(message);
         appendToChat("You: " + message);
         input.value = "";
+        clearTypingStatus();
       }
+    });
+
+    input.addEventListener("input", () => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send("__typing__");
+      }
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        clearTypingStatus();
+      }, 1500); // Clear after 1.5s of no typing
     });
 
     function appendToChat(text) {
@@ -88,6 +106,21 @@
       p.textContent = text;
       chatBox.appendChild(p);
       chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function showTypingStatus(status) {
+      clearTypingStatus();
+      const indicator = document.createElement("p");
+      indicator.id = "typingIndicator";
+      indicator.className = "typing-indicator";
+      indicator.textContent = status;
+      chatBox.appendChild(indicator);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function clearTypingStatus() {
+      const el = document.getElementById("typingIndicator");
+      if (el) el.remove();
     }
   </script>
 </body>
