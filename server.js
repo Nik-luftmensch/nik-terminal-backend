@@ -1,43 +1,64 @@
 const http = require("http");
 const WebSocket = require("ws");
-const readline = require("readline");
+const fs = require("fs");
+const path = require("path");
 
 const PORT = process.env.PORT || 3000;
 
 const server = http.createServer((req, res) => {
-  res.writeHead(200);
-  res.end("Nik Terminal WebSocket server is running.");
+  if (req.url === "/admin") {
+    const filePath = path.join(__dirname, "admin.html");
+    fs.readFile(filePath, (err, content) => {
+      if (err) {
+        res.writeHead(500);
+        return res.end("Error loading admin interface");
+      }
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(content);
+    });
+  } else {
+    res.writeHead(200);
+    res.end("Nik Terminal WebSocket server is running.");
+  }
 });
 
 const wss = new WebSocket.Server({ server });
 
-let activeSocket = null;
+let userSocket = null;
+let adminSocket = null;
 
-wss.on("connection", (ws) => {
-  console.log("✅ Client connected");
-  activeSocket = ws;
+wss.on("connection", (ws, req) => {
+  const isAdmin = req.url === "/admin";
 
-  ws.on("message", (message) => {
-    console.log(`👤 User: ${message}`);
-  });
+  if (isAdmin) {
+    console.log("✅ Admin connected");
+    adminSocket = ws;
 
-  ws.on("close", () => {
-    console.log("❌ Client disconnected");
-    activeSocket = null;
-  });
-});
+    ws.on("message", (msg) => {
+      if (userSocket && userSocket.readyState === WebSocket.OPEN) {
+        userSocket.send(msg);
+      }
+    });
 
-// Allow you to chat from terminal input
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
-rl.on("line", (input) => {
-  if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
-    activeSocket.send(input);
+    ws.on("close", () => {
+      console.log("❌ Admin disconnected");
+      adminSocket = null;
+    });
   } else {
-    console.log("⚠️ No active client connected.");
+    console.log("✅ User connected");
+    userSocket = ws;
+
+    ws.on("message", (msg) => {
+      console.log("👤 User:", msg);
+      if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {
+        adminSocket.send(`User: ${msg}`);
+      }
+    });
+
+    ws.on("close", () => {
+      console.log("❌ User disconnected");
+      userSocket = null;
+    });
   }
 });
 

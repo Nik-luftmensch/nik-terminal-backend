@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Nik Admin Chat</title>
+  <style>
+    body { font-family: monospace; background: #111; color: #0f0; padding: 20px; }
+    #chat { height: 300px; overflow-y: auto; border: 1px solid #0f0; padding: 10px; margin-bottom: 10px; }
+    input { width: 100%; padding: 8px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h2>💬 Admin Chat Interface</h2>
+  <div id="chat"></div>
+  <input type="text" id="messageInput" placeholder="Type message and press Enter..." />
+
+  <script>
+    const chatBox = document.getElementById("chat");
+    const input = document.getElementById("messageInput");
+
+    const socket = new WebSocket(`wss://${window.location.host}/admin`);
+
+    socket.onmessage = (event) => {
+      const msg = event.data;
+      const p = document.createElement("p");
+      p.textContent = msg;
+      chatBox.appendChild(p);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    };
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && input.value.trim() !== "") {
+        socket.send(input.value);
+        const p = document.createElement("p");
+        p.textContent = "You: " + input.value;
+        chatBox.appendChild(p);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        input.value = "";
+      }
+    });
+  </script>
+</body>
+</html>
