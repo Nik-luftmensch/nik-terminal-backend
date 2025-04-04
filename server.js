@@ -4,8 +4,9 @@ const WebSocket = require("ws");
 const cors = require("cors");
 
 const app = express();
-app.use(cors()); // Enable CORS for frontend on GitHub Pages
-
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGIN
+}));
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
