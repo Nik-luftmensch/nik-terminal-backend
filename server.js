@@ -46,13 +46,13 @@ wss.on("connection", (ws, req, isAdmin) => {
 
     ws.on("message", (msg) => {
       if (msg === "__typing__") {
-        if (userSocket && userSocket.readyState === WebSocket.OPEN) {
+        if (userSocket?.readyState === WebSocket.OPEN) {
           userSocket.send("__admin_typing__");
         }
         return;
       }
 
-      if (userSocket && userSocket.readyState === WebSocket.OPEN) {
+      if (userSocket?.readyState === WebSocket.OPEN) {
         userSocket.send(msg);
       }
     });
@@ -70,7 +70,7 @@ wss.on("connection", (ws, req, isAdmin) => {
     ws.on("message", async (raw) => {
       try {
         const msg = JSON.parse(raw);
-        const userMessage = msg.message.trim();
+        const userMessage = msg?.message?.trim();
 
         if (msg.type === "identity") {
           userName = msg.name || "User";
@@ -79,7 +79,7 @@ wss.on("connection", (ws, req, isAdmin) => {
         }
 
         if (msg.type === "typing") {
-          if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {
+          if (adminSocket?.readyState === WebSocket.OPEN) {
             adminSocket.send(
               JSON.stringify({
                 type: "__user_typing__",
@@ -91,24 +91,30 @@ wss.on("connection", (ws, req, isAdmin) => {
         }
 
         if (msg.type === "chat") {
-          // Greeting shortcut
-          const greetings = ["hi", "hello", "hey"];
-          if (greetings.includes(userMessage.toLowerCase())) {
-            if (userSocket && userSocket.readyState === WebSocket.OPEN) {
-              userSocket.send(
-                `AI Nik: Hello, thank you for reaching out! I’m Nikhil’s personal AI assistant. What would you like to know about him?`
-              );
-              return;
-            }
-          }
-
-          if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {
-            const formatted = `${userLabel}: ${msg.message}`;
-            adminSocket.send(formatted);
+          // 🛡️ Check for empty/invalid input
+          if (!userMessage || userMessage.length < 1) {
+            console.log("⚠️ Ignored empty or invalid user message.");
             return;
           }
 
-          // Prompt for Mixtral
+          // 💬 Handle greeting
+          const greetings = ["hi", "hello", "hey"];
+          if (greetings.includes(userMessage.toLowerCase())) {
+            if (userSocket?.readyState === WebSocket.OPEN) {
+              userSocket.send(
+                `AI Nik: Hello, thank you for reaching out! I’m Nikhil’s personal AI assistant. What would you like to know about him?`
+              );
+            }
+            return;
+          }
+
+          // 📩 Mirror message to admin
+          if (adminSocket?.readyState === WebSocket.OPEN) {
+            const formatted = `${userLabel}: ${userMessage}`;
+            adminSocket.send(formatted);
+          }
+
+          // 🧠 Prompt setup
           const prompt = `
 You are AI Nik — a professional portfolio assistant for Nikhil Singh.
 Only respond using the info below. Be concise, polite, and professional. Never invent facts.
@@ -145,35 +151,37 @@ AI Nik:
             }
           );
 
+          // 🌐 Handle HTTP errors safely
           if (!response.ok) {
             const errorText = await response.text();
-            console.error("❌ Hugging Face API Error:", response.status, errorText);
+            console.error(`❌ Hugging Face API Error ${response.status}:`, errorText);
 
-            if (userSocket && userSocket.readyState === WebSocket.OPEN) {
-              userSocket.send("AI Nik: I'm currently having trouble accessing my knowledge. Please try again shortly.");
+            if (userSocket?.readyState === WebSocket.OPEN) {
+              userSocket.send(
+                `AI Nik: I'm having trouble reaching my brain right now. Please try again shortly.`
+              );
             }
             return;
           }
 
           const data = await response.json();
-
           let fullText = Array.isArray(data)
             ? data[0]?.generated_text?.trim()
             : data?.generated_text?.trim();
 
           let reply = fullText?.split("AI Nik:").pop().trim();
 
-          if (!reply) {
+          if (!reply || reply.length < 1) {
             reply = "🤖 AI Nik: I'm not sure how to answer that right now.";
           }
 
-          if (userSocket && userSocket.readyState === WebSocket.OPEN) {
+          if (userSocket?.readyState === WebSocket.OPEN) {
             userSocket.send(`AI Nik: ${reply}`);
           }
         }
       } catch (err) {
-        console.error("❌ Error handling message:", err);
-        if (userSocket && userSocket.readyState === WebSocket.OPEN) {
+        console.error("❌ Unexpected error in message handler:", err);
+        if (userSocket?.readyState === WebSocket.OPEN) {
           userSocket.send(`AI Nik: Something went wrong while processing your request.`);
         }
       }
