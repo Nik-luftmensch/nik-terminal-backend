@@ -72,7 +72,6 @@
     socket.onmessage = async (event) => {
       let msg = typeof event.data === "string" ? event.data : await event.data.text();
 
-      // Handle typing indicators
       try {
         const parsed = JSON.parse(msg);
         if (parsed.type === "__user_typing__" && parsed.name) {
@@ -80,7 +79,7 @@
           return;
         }
       } catch {
-        // Not JSON
+        // not JSON, proceed
       }
 
       if (msg === "__ai_typing__") {
@@ -90,10 +89,14 @@
 
       clearTypingStatus();
 
-      // Parse label: "User: message" or "AI Nik: ..."
       const colonIndex = msg.indexOf(": ");
+      if (colonIndex === -1) return;
+
       const userName = msg.slice(0, colonIndex);
       const message = msg.slice(colonIndex + 2);
+
+      // 👇 Don't echo admin’s own message
+      if (userName === "Nik") return;
 
       appendToChat(`${userName}: ${message}`);
     };
@@ -102,7 +105,7 @@
       if (e.key === "Enter" && input.value.trim() !== "") {
         const message = input.value.trim();
         socket.send(message);
-        appendToChat("Nik: " + message);  // Admin label
+        appendToChat("Nik: " + message);
         input.value = "";
         clearTypingStatus();
       }

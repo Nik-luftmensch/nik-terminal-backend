@@ -1,4 +1,3 @@
-// Enhanced WebSocket AI Resume Assistant for Nikhil Singh with admin override and clean labels
 const http = require("http");
 const WebSocket = require("ws");
 const fs = require("fs");
@@ -6,7 +5,9 @@ const path = require("path");
 const dotenv = require("dotenv");
 dotenv.config();
 
-const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
+
 const PORT = process.env.PORT || 3000;
 
 const server = http.createServer((req, res) => {
@@ -27,6 +28,7 @@ const server = http.createServer((req, res) => {
 });
 
 const wss = new WebSocket.Server({ noServer: true });
+
 let userSocket = null;
 let adminSocket = null;
 
@@ -50,8 +52,12 @@ wss.on("connection", (ws, req, isAdmin) => {
         return;
       }
 
+      // 💬 Filter typing signals (so they're not treated as messages)
+      if (msg.startsWith("__")) return;
+
+      // 👤 Forward admin message to user (with clear "Nik" label)
       if (userSocket?.readyState === WebSocket.OPEN) {
-        userSocket.send(`Nik: ${msg}`); // Admin messages labeled Nik
+        userSocket.send(`Nik: ${msg}`);
       }
     });
 
@@ -66,102 +72,93 @@ wss.on("connection", (ws, req, isAdmin) => {
     let userName = "User";
 
     ws.on("message", async (raw) => {
-      let msg;
       try {
-        msg = JSON.parse(raw);
-      } catch (err) {
-        console.warn("⚠️ Invalid JSON received.");
-        return;
-      }
+        const msg = JSON.parse(raw);
+        const userMessage = msg?.message?.trim();
 
-      const userMessage = msg?.message?.trim();
-
-      if (msg.type === "identity") {
-        userName = msg.name || "User";
-        userLabel = `${msg.location}@${msg.ip}_${userName}`;
-        return;
-      }
-
-      if (msg.type === "typing") {
-        if (adminSocket?.readyState === WebSocket.OPEN) {
-          adminSocket.send(JSON.stringify({ type: "__user_typing__", name: userName }));
+        if (msg.type === "identity") {
+          userName = msg.name || "User";
+          userLabel = `${msg.location}@${msg.ip}_${userName}`;
+          return;
         }
-        return;
-      }
 
-      if (msg.type === "chat") {
-        if (!userMessage) return;
-
-        const greetings = ["hi", "hello", "hey"];
-        if (greetings.includes(userMessage.toLowerCase())) {
-          if (userSocket?.readyState === WebSocket.OPEN) {
-            userSocket.send("AI Nik: Hello! I'm Nikhil's personal AI assistant. What would you like to know?");
+        if (msg.type === "typing") {
+          if (adminSocket?.readyState === WebSocket.OPEN) {
+            adminSocket.send(
+              JSON.stringify({
+                type: "__user_typing__",
+                name: userName,
+              })
+            );
           }
           return;
         }
 
-        if (adminSocket?.readyState === WebSocket.OPEN) {
-          adminSocket.send(`${userLabel}: ${userMessage}`);
-          return; // Do not trigger AI if admin is active
-        }
+        if (msg.type === "chat") {
+          // 📩 Show in admin dashboard if connected
+          if (adminSocket?.readyState === WebSocket.OPEN) {
+            const formatted = `${userLabel}: ${userMessage}`;
+            adminSocket.send(formatted);
+            return;
+          }
 
-        // Send typing indicator to user
-        if (userSocket?.readyState === WebSocket.OPEN) {
-          userSocket.send("__ai_typing__");
-        }
+          // 🤖 AI fallback mode
+          const prompt = `
+You are AI Nik — a professional portfolio assistant for Nikhil Singh.
+Only respond using the info below. Be concise, polite, and professional. Never invent facts.
 
-        const resumePrompt = `You are AI Nik, a personal portfolio assistant for Nikhil Singh. Answer the following using ONLY the data below:
-
-EDUCATION:
-- MS in Computer Science (AI & Systems), University of Iowa (GPA 3.8/4.0)
-- B.Tech in Computer Science, University of Mumbai (Top 5%, GPA 4.0)
-
-EXPERIENCE:
-- Staff Software Engineer, EA: Built Airflow + Prophet ML pipeline for server load prediction, real-time Kafka streaming for telemetry, observability dashboards (Looker), Kubernetes deployments, alerting with Prometheus, etc.
-- AI & Data Intern, EA: GCP-based telemetry pipeline using Pub/Sub, Trino, BigQuery, Cloud Run, gRPC APIs.
-- Research Assistant, Univ of Iowa: GCP web apps, CI/CD with CloudFormation, river sensor MapReduce optimization.
-- Sr Software Engineer, Nvent: AWS microservices (EC2, Lambda, SQS, ECS), caching, performance tuning in C#.
-
-PROJECT:
-- Built CNN-based traffic management system with image classification.
-
-SKILLS:
-- Python, Go, C++, JS, TypeScript, React, Angular, Terraform, Docker, Airflow, Kubernetes, Spark, Tableau, GCP, AWS.
+=== NIKHIL SINGH ===
+- Software Engineer at EA: ML pipelines (Airflow, Prophet), Kafka systems, observability tools (Looker, Grafana), cloud infra (GCP, AWS, Kubernetes)
+- Previous roles: AI Intern at EA, Research Assistant at Iowa, Senior SDE at Nvent
+- MS in CS from University of Iowa (AI + Systems); B.Tech in CSE from University of Mumbai (Top 5%)
+- Skills: Python, Go, C++, React, Angular, Docker, Terraform, Spark, Tableau
 
 Guest: ${userMessage}
-AI Nik:`;
+AI Nik:
+          `;
 
-        try {
-          const response = await fetch("https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.HF_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ inputs: resumePrompt })
-          });
+          if (userSocket?.readyState === WebSocket.OPEN) {
+            userSocket.send("__ai_typing__");
+          }
+
+          const response = await fetch(
+            "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${process.env.HF_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ inputs: prompt }),
+            }
+          );
 
           if (!response.ok) {
-            const errText = await response.text();
-            console.error("HF API Error:", response.status, errText);
+            const errorText = await response.text();
+            console.error("❌ Hugging Face API Error:", response.status, errorText);
+
             if (userSocket?.readyState === WebSocket.OPEN) {
-              userSocket.send("AI Nik: I'm currently having trouble answering. Please try again soon.");
+              userSocket.send(`AI Nik: I'm having trouble connecting to my brain. Please try again shortly.`);
             }
             return;
           }
 
           const data = await response.json();
-          let fullText = Array.isArray(data) ? data[0]?.generated_text?.trim() : data?.generated_text?.trim();
-          let reply = fullText?.split("AI Nik:").pop().trim();
+          let fullText = Array.isArray(data)
+            ? data[0]?.generated_text?.trim()
+            : data?.generated_text?.trim();
 
-          if (!reply) reply = "AI Nik: I'm not sure how to answer that.";
-          if (userSocket?.readyState === WebSocket.OPEN) userSocket.send(`AI Nik: ${reply}`);
-        } catch (err) {
-          console.error("Unexpected error:", err);
+          let reply = fullText?.split("AI Nik:").pop().trim();
+          if (!reply || reply.length < 1) {
+            reply = "🤖 AI Nik: I'm not sure how to answer that right now.";
+          }
+
           if (userSocket?.readyState === WebSocket.OPEN) {
-            userSocket.send("AI Nik: Something went wrong processing your request.");
+            userSocket.send(`AI Nik: ${reply}`);
           }
         }
+      } catch (err) {
+        console.error("❌ Error handling message:", err);
       }
     });
 
