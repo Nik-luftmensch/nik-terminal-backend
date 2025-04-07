@@ -71,20 +71,24 @@
 
     socket.onmessage = async (event) => {
       let msg = typeof event.data === "string" ? event.data : await event.data.text();
-
-      if (msg === "__user_typing__") {
-        showTypingStatus("User is typing...");
-        return;
+    
+      try {
+        const parsed = JSON.parse(msg);
+    
+        if (parsed.type === "__user_typing__" && parsed.name) {
+          showTypingStatus(`${parsed.name} is typing...`);
+          return;
+        }
+      } catch {
+        // Not JSON, proceed
       }
-
+    
       clearTypingStatus();
-
-      // If the message contains the user alias (e.g., 'alex: Hello'), we need to extract the name
+    
       const userMessage = msg.split(": ");
-      const userName = userMessage[0];  // 'alex'
-      const message = userMessage[1];   // 'Hello'
-
-      // Display the message with the user's name (e.g., 'alex: Hello')
+      const userName = userMessage[0];
+      const message = userMessage[1];
+    
       appendToChat(`${userName}: ${message}`);
     };
 
