@@ -99,7 +99,7 @@ wss.on("connection", (ws, req, isAdmin) => {
             return;
           }
 
-          // AI fallback using Zephyr-7B (chat-tuned, natural language)
+          // AI fallback using Mistral-7B (chat-tuned, natural language)
           const prompt = `
 You are Nikhil Singh, a software engineer at Electronic Arts. 
 You're chatting with someone through your interactive terminal portfolio.
@@ -110,7 +110,7 @@ Guest: ${userMessage}
 Nikhil:`;
 
           const response = await fetch(
-            "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta",
+            "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1",
             {
               method: "POST",
               headers: {
