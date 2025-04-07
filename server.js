@@ -1,3 +1,4 @@
+// Updated server.js with deeply integrated resume + context-based prompt
 const http = require("http");
 const WebSocket = require("ws");
 const fs = require("fs");
@@ -48,16 +49,13 @@ wss.on("connection", (ws, req, isAdmin) => {
 
     ws.on("message", (msg) => {
       const raw = msg.toString();
-
       if (raw === "__typing__") {
         if (userSocket?.readyState === WebSocket.OPEN) {
           userSocket.send("__admin_typing__");
         }
         return;
       }
-
       if (raw.startsWith("__")) return;
-
       if (userSocket?.readyState === WebSocket.OPEN) {
         userSocket.send(`Nik: ${raw}`);
       }
@@ -86,12 +84,10 @@ wss.on("connection", (ws, req, isAdmin) => {
 
         if (msg.type === "typing") {
           if (adminSocket?.readyState === WebSocket.OPEN) {
-            adminSocket.send(
-              JSON.stringify({
-                type: "__user_typing__",
-                name: userName,
-              })
-            );
+            adminSocket.send(JSON.stringify({
+              type: "__user_typing__",
+              name: userName,
+            }));
           }
           return;
         }
@@ -104,18 +100,49 @@ wss.on("connection", (ws, req, isAdmin) => {
           }
 
           const promptText = `
-You are AI Nik — a professional portfolio assistant for Nikhil Singh.
-Only respond using the info below. Be concise, polite, and professional. Never invent facts.
+You are AI Nik — a professional portfolio assistant for Nikhil Singh. Be factual, professional, and concise. Never invent anything. Use the info below.
 
 === NIKHIL SINGH ===
-- Software Engineer at EA: ML pipelines (Airflow, Prophet), Kafka systems, observability tools (Looker, Grafana), cloud infra (GCP, AWS, Kubernetes)
-- Previous roles: AI Intern at EA, Research Assistant at Iowa, Senior SDE at Nvent
-- MS in CS from University of Iowa (AI + Systems); B.Tech in CSE from University of Mumbai (Top 5%)
-- Skills: Python, Go, C++, React, Angular, Docker, Terraform, Spark, Tableau
+Name: Nikhil Singh
+Location: Redwood Shores, CA
+Current Role: Staff Software Engineer at Electronic Arts (EA), Data & AI Org
+LinkedIn: https://www.linkedin.com/in/nikhil-singh-828348137/
+GitHub: https://github.com/Nik-luftmensch
+Portfolio: https://nik-luftmensch.github.io/
+
+Experience Highlights:
+- Led cross-org systems for observability and AI enablement
+- Built Airflow + Kafka + BigQuery pipelines visualized in Looker and Power BI
+- Developed ML forecasting with Prophet (saved $700K/quarter)
+- Created federated GPT-based internal knowledge search platform
+- Built UI and alerting system (Grafana, Slack, PagerDuty, Prometheus)
+- Designed real-time player disconnection stream with Apache Kafka
+- Built Go-based chargeback API with full monitoring and logging
+
+Previous:
+- AI Intern at EA (telemetry systems on GCP)
+- Research Assistant at Univ. of Iowa (MapReduce + sensor networks)
+- Senior SDE at Nvent (AWS-based distributed systems)
+
+Education:
+- MS in CS, Univ. of Iowa (AI & Systems, Full Scholarship)
+- B.Tech in CSE, Univ. of Mumbai (Top 5%)
+
+Skills:
+- Programming Languages: Python, JavaScript, Typescript, C#, C++, Go 
+- Frontend: Angular, React, HTML5, CSS3 
+- Analytical Tools: Looker Studio, Power BI, Tableau, Grafana 
+- Databases: NoSQL, MySQL, Postgres, Google Datastore, MongoDB
+- Big Data: Hadoop, Apache HBase,
+- Cloud: GCP, AWS
+- Tools: Apache Spark, Terraform, Airflow, Neo 4j, Docker, Kubernetes
+
+Mindset:
+- Detail-oriented, collaborative, and impact-focused
+- Learns through documentation, POCs, iteration, and knowledge sharing
 
 Guest: ${userMessage}
-AI Nik:
-          `;
+AI Nik:`;
 
           if (userSocket?.readyState === WebSocket.OPEN) {
             userSocket.send("__ai_typing__");
@@ -143,7 +170,6 @@ AI Nik:
           if (!response.ok) {
             const errorText = await response.text();
             console.error("❌ OpenRouter API Error:", response.status, errorText);
-
             if (userSocket?.readyState === WebSocket.OPEN) {
               userSocket.send(`AI Nik: I'm having trouble connecting to my brain. Please try again shortly.`);
             }
