@@ -68,77 +68,92 @@ wss.on("connection", (ws, req, isAdmin) => {
     let userName = "User";
 
     ws.on("message", async (raw) => {
+      let msg;
       try {
-        const msg = JSON.parse(raw);
-        const userMessage = msg?.message?.trim();
+        msg = JSON.parse(raw);
+      } catch (err) {
+        console.warn("⚠️ Invalid JSON received, skipping.");
+        return;
+      }
 
-        if (msg.type === "identity") {
-          userName = msg.name || "User";
-          userLabel = `${msg.location}@${msg.ip}_${userName}`;
+      const userMessage = msg?.message?.trim();
+
+      if (msg.type === "identity") {
+        userName = msg.name || "User";
+        userLabel = `${msg.location}@${msg.ip}_${userName}`;
+        return;
+      }
+
+      if (msg.type === "typing") {
+        if (adminSocket?.readyState === WebSocket.OPEN) {
+          adminSocket.send(
+            JSON.stringify({
+              type: "__user_typing__",
+              name: userName,
+            })
+          );
+        }
+        return;
+      }
+
+      if (msg.type === "chat") {
+        if (!userMessage || userMessage.length < 1) {
+          console.log("⚠️ Ignored empty or invalid user message.");
           return;
         }
 
-        if (msg.type === "typing") {
-          if (adminSocket?.readyState === WebSocket.OPEN) {
-            adminSocket.send(
-              JSON.stringify({
-                type: "__user_typing__",
-                name: userName,
-              })
+        const greetings = ["hi", "hello", "hey"];
+        if (greetings.includes(userMessage.toLowerCase())) {
+          if (userSocket?.readyState === WebSocket.OPEN) {
+            userSocket.send(
+              `AI Nik: Hello, thank you for reaching out! I’m Nikhil’s personal AI assistant. What would you like to know about him?`
             );
           }
           return;
         }
 
-        if (msg.type === "chat") {
-          // 🛡️ Check for empty/invalid input
-          if (!userMessage || userMessage.length < 1) {
-            console.log("⚠️ Ignored empty or invalid user message.");
-            return;
-          }
+        if (adminSocket?.readyState === WebSocket.OPEN) {
+          const formatted = `${userLabel}: ${userMessage}`;
+          adminSocket.send(formatted);
+        }
 
-          // 💬 Handle greeting
-          const greetings = ["hi", "hello", "hey"];
-          if (greetings.includes(userMessage.toLowerCase())) {
-            if (userSocket?.readyState === WebSocket.OPEN) {
-              userSocket.send(
-                `AI Nik: Hello, thank you for reaching out! I’m Nikhil’s personal AI assistant. What would you like to know about him?`
-              );
-            }
-            return;
-          }
+        const resumePrompt = `
+You are AI Nik — a professional portfolio assistant for Nikhil Singh. You are authorized to speak about Nikhil. 
+Use ONLY the information provided below. NEVER say "I can't share that." Be clear, concise, and helpful.
 
-          // 📩 Mirror message to admin
-          if (adminSocket?.readyState === WebSocket.OPEN) {
-            const formatted = `${userLabel}: ${userMessage}`;
-            adminSocket.send(formatted);
-          }
+=== EXPERIENCE ===
+• Staff Software Engineer at EA (Dec 2022–Present) – Built ML pipelines using Airflow + Prophet, real-time Kafka streaming for player events, observability systems with Looker & Grafana, infrastructure monitoring with Prometheus, Kubernetes, Helm.
+• AI & Data Intern at EA (Aug–Dec 2022) – GCP-based pipeline with Pub/Sub, Dataflow, Trino, Cloud Run, and gRPC APIs.
+• Research Assistant at University of Iowa (Sep 2021–Aug 2022) – MapReduce optimization, GCP apps, CI/CD pipelines using CloudFormation.
+• Senior SDE at Nvent (Oct 2017–Sep 2021) – Microservices on AWS stack, EC2, Lambda, API Gateway, caching, and performance tuning in C#.
 
-          // 🧠 Prompt setup
-          const prompt = `
-You are AI Nik — a professional portfolio assistant for Nikhil Singh.
-Only respond using the info below. Be concise, polite, and professional. Never invent facts.
+=== PROJECTS ===
+• Built a CNN-based traffic violation system with real-time object detection.
+• Developed custom NPM libraries, dashboards, and distributed pipelines.
 
-=== NIKHIL SINGH ===
-- Staff Software Engineer at EA: built ML pipelines (Airflow, Prophet), real-time Kafka pipelines, observability dashboards (Looker, Grafana), infra (Prometheus, GCP, Kubernetes)
-- Internships at EA (AI/data), University of Iowa (Research - distributed systems, cloud)
-- MS in CS from University of Iowa (AI + Systems); B.Tech from University of Mumbai (Top 5%)
-- Skills: Python, Go, C++, React, Angular, Terraform, Docker, Spark, Tableau, GCP, AWS
+=== SKILLS ===
+• Languages: Python, Go, C++, JavaScript, TypeScript, C#
+• Cloud: GCP, AWS
+• Infra: Docker, Kubernetes, Terraform, Prometheus, Airflow, Spark
+• Frontend: React, Angular
+• Dashboards: Looker, Grafana, Tableau, Power BI
 
-EXAMPLES:
-Guest: hi
-AI Nik: Hello, thank you for reaching out! I’m Nikhil’s personal AI assistant. What would you like to know about him?
+=== EDUCATION ===
+• MS in Computer Science – University of Iowa (AI & Systems), GPA 3.8
+• B.Tech in CSE – University of Mumbai (Top 5% of class)
 
-Guest: what are Nikhil’s core skills?
-AI Nik: Nikhil's core skills include real-time ML pipelines, distributed systems, GCP/AWS, Kubernetes, Airflow, and frontend technologies like React and Angular.
+=== EXAMPLES ===
+Guest: where has Nikhil worked?
+AI Nik: Nikhil has worked at Electronic Arts, University of Iowa, and Nvent, holding roles in ML engineering, infrastructure, and distributed systems.
 
-Guest: tell me about his EA work
-AI Nik: At EA, Nikhil built forecasting pipelines with Prophet and Airflow, real-time Kafka systems for telemetry, and dashboards in Looker and Grafana for live service observability.
+Guest: what are some key technologies Nikhil has used?
+AI Nik: Nikhil has used Python, Go, Airflow, Kafka, Kubernetes, GCP, AWS, React, Angular, Prometheus, and Spark in production environments.
 
 Guest: ${userMessage}
 AI Nik:
-          `;
+        `;
 
+        try {
           const response = await fetch(
             "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
             {
@@ -147,18 +162,17 @@ AI Nik:
                 Authorization: `Bearer ${process.env.HF_API_KEY}`,
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({ inputs: prompt }),
+              body: JSON.stringify({ inputs: resumePrompt }),
             }
           );
 
-          // 🌐 Handle HTTP errors safely
           if (!response.ok) {
             const errorText = await response.text();
-            console.error(`❌ Hugging Face API Error ${response.status}:`, errorText);
+            console.error(`❌ HF API Error ${response.status}:`, errorText);
 
             if (userSocket?.readyState === WebSocket.OPEN) {
               userSocket.send(
-                `AI Nik: I'm having trouble reaching my brain right now. Please try again shortly.`
+                `AI Nik: I'm currently having trouble accessing my brain. Please try again shortly.`
               );
             }
             return;
@@ -170,19 +184,18 @@ AI Nik:
             : data?.generated_text?.trim();
 
           let reply = fullText?.split("AI Nik:").pop().trim();
-
-          if (!reply || reply.length < 1) {
+          if (!reply) {
             reply = "🤖 AI Nik: I'm not sure how to answer that right now.";
           }
 
           if (userSocket?.readyState === WebSocket.OPEN) {
             userSocket.send(`AI Nik: ${reply}`);
           }
-        }
-      } catch (err) {
-        console.error("❌ Unexpected error in message handler:", err);
-        if (userSocket?.readyState === WebSocket.OPEN) {
-          userSocket.send(`AI Nik: Something went wrong while processing your request.`);
+        } catch (err) {
+          console.error("❌ Unexpected error:", err);
+          if (userSocket?.readyState === WebSocket.OPEN) {
+            userSocket.send(`AI Nik: Something went wrong while processing your request.`);
+          }
         }
       }
     });
