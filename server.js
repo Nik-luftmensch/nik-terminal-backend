@@ -10,7 +10,7 @@ const fetch = (...args) =>
 
 const PORT = process.env.PORT || 3000;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const MODEL = "google/gemini-2.5-pro-exp-03-25:free";
+const MODEL = "anthropic/claude-3-haiku:free";
 
 const server = http.createServer((req, res) => {
   if (req.url === "/admin") {
@@ -134,12 +134,7 @@ AI Nik:
               messages: [
                 {
                   role: "user",
-                  content: [
-                    {
-                      type: "text",
-                      text: promptText
-                    }
-                  ]
+                  content: promptText
                 }
               ]
             })
@@ -156,7 +151,7 @@ AI Nik:
           }
 
           const data = await response.json();
-          const reply = data.choices?.[0]?.message?.content?.[0]?.text?.trim() || "🤖 AI Nik: I'm not sure how to answer that right now.";
+          const reply = data.choices?.[0]?.message?.content?.trim() || "🤖 AI Nik: I'm not sure how to answer that right now.";
 
           if (userSocket?.readyState === WebSocket.OPEN) {
             userSocket.send(`AI Nik: ${reply}`);
