@@ -69,7 +69,7 @@ wss.on("connection", (ws, req, isAdmin) => {
 
         // User identity info received from secure_handshake command
         if (msg.type === "identity") {
-          userLabel = `${msg.location}@${msg.ip}_${msg.name || "User"}`;  // Use user’s alias (e.g., 'alex')
+          userLabel = `${msg.location}@${msg.ip}_${msg.name || "User"}`;
           console.log("🆔 User identified as:", userLabel);
           return;
         }
@@ -77,7 +77,7 @@ wss.on("connection", (ws, req, isAdmin) => {
         // Typing event from user
         if (msg.type === "typing") {
           if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {
-            adminSocket.send("__user_typing__");
+            adminSocket.send("__user_typing__"); // ✅ now sent to admin
           }
           return;
         }
