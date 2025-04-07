@@ -53,8 +53,24 @@ wss.on("connection", (ws, req, isAdmin) => {
       }
 
       // 💬 Filter typing signals (so they're not treated as messages)
-      if (msg.startsWith("__")) return;
-
+      ws.on("message", (msg) => {
+        const raw = msg.toString(); // 🧼 Ensure string
+      
+        if (raw === "__typing__") {
+          if (userSocket?.readyState === WebSocket.OPEN) {
+            userSocket.send("__admin_typing__");
+          }
+          return;
+        }
+      
+        // ⛔ Skip non-user-visible signals
+        if (raw.startsWith("__")) return;
+      
+        if (userSocket?.readyState === WebSocket.OPEN) {
+          userSocket.send(`Nik: ${raw}`);
+        }
+      });
+      
       // 👤 Forward admin message to user (with clear "Nik" label)
       if (userSocket?.readyState === WebSocket.OPEN) {
         userSocket.send(`Nik: ${msg}`);
@@ -108,7 +124,7 @@ You are AI Nik — a professional portfolio assistant for Nikhil Singh.
 Only respond using the info below. Be concise, polite, and professional. Never invent facts.
 
 === NIKHIL SINGH ===
-- Software Engineer at EA: ML pipelines (Airflow, Prophet), Kafka systems, observability tools (Looker, Grafana), cloud infra (GCP, AWS, Kubernetes)
+- Staff Software Engineer at EA: ML pipelines (Airflow, Prophet), Kafka systems, observability tools (Looker, Grafana), cloud infra (GCP, AWS, Kubernetes)
 - Previous roles: AI Intern at EA, Research Assistant at Iowa, Senior SDE at Nvent
 - MS in CS from University of Iowa (AI + Systems); B.Tech in CSE from University of Mumbai (Top 5%)
 - Skills: Python, Go, C++, React, Angular, Docker, Terraform, Spark, Tableau
