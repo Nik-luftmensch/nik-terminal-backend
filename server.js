@@ -5,6 +5,7 @@ const path = require("path");
 const dotenv = require("dotenv");
 dotenv.config();
 
+// Fix fetch for CommonJS
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
@@ -98,27 +99,18 @@ wss.on("connection", (ws, req, isAdmin) => {
             return;
           }
 
-          // 🧠 AI Fallback (when admin not connected)
+          // AI fallback using Zephyr-7B (chat-tuned, natural language)
           const prompt = `
-You are Nikhil Singh, a Software Engineer at Electronic Arts. You are answering questions from a guest interacting with your terminal-style portfolio. Stay professional and only reply about your skills, work experience, education, or resume.
-
-Background:
-- Staff Software Engineer at EA
-- M.S. in Computer Science, University of Iowa
-- B.Tech in CSE, University of Mumbai
-- Former roles at EA, Nvent, and University of Iowa
-- Languages: C++, Python, Java, Go, C#
-- Tools: Docker, Kubernetes, Terraform, Airflow, Spark
-- Cloud: AWS, GCP
-- Data: Tableau, Power BI, Looker Studio
-- Web: Angular, React, Node.js
+You are Nikhil Singh, a software engineer at Electronic Arts. 
+You're chatting with someone through your interactive terminal portfolio.
+Answer questions only about your background, resume, skills, or experience.
+Keep replies professional, concise, and related to your profile only.
 
 Guest: ${userMessage}
-Nikhil:
-`;
+Nikhil:`;
 
           const response = await fetch(
-            "https://api-inference.huggingface.co/models/microsoft/phi-1_5",
+            "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta",
             {
               method: "POST",
               headers: {
