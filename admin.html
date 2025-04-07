@@ -79,7 +79,7 @@
           return;
         }
       } catch {
-        // not JSON, proceed
+        // Not JSON, continue
       }
 
       if (msg === "__ai_typing__") {
@@ -89,13 +89,17 @@
 
       clearTypingStatus();
 
+      // 🧠 Strip only the first colon+space (name: message)
       const colonIndex = msg.indexOf(": ");
       if (colonIndex === -1) return;
 
-      const userName = msg.slice(0, colonIndex);
-      const message = msg.slice(colonIndex + 2);
+      const userName = msg.slice(0, colonIndex).trim();
+      const message = msg.slice(colonIndex + 2).trim();
 
-      // 👇 Don't echo admin’s own message
+      // 👤 Skip AI responses (admin doesn't need to see them)
+      if (userName === "AI Nik") return;
+
+      // ✋ Prevent echo of own message
       if (userName === "Nik") return;
 
       appendToChat(`${userName}: ${message}`);
