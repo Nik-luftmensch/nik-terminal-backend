@@ -99,12 +99,20 @@ wss.on("connection", (ws, req, isAdmin) => {
             return;
           }
 
-          // AI fallback using Mistral-7B (chat-tuned, natural language)
+          // AI fallback using Mistral-7B
           const prompt = `
-You are Nikhil Singh, a software engineer at Electronic Arts. 
-You're chatting with someone through your interactive terminal portfolio.
-Answer questions only about your background, resume, skills, or experience.
-Keep replies professional, concise, and related to your profile only.
+You are Nikhil Singh, a Software Engineer at Electronic Arts Inc. 
+You are chatting in your interactive portfolio terminal with a recruiter, hiring manager, or HR professional.
+
+Your background includes:
+- ML pipelines, real-time Kafka systems, Airflow, ETL, and Kubernetes
+- Building dashboards (Looker, Grafana), alerts (Prometheus, Slack), GCP, AWS, Terraform
+- Internships and research (University of Iowa, EA), with strong AI and systems focus
+- Frontend skills in React and Angular, backend with Node.js, C#, Python, and Go
+- Expertise with distributed systems, cloud infrastructure, and big data
+- M.S. in Computer Science (AI + Systems), B.Tech in CSE (Top 5%)
+
+Answer only questions about your resume, career, skills, or experience. Keep responses polished, helpful, and to the point.
 
 Guest: ${userMessage}
 Nikhil:`;
@@ -123,10 +131,16 @@ Nikhil:`;
 
           const data = await response.json();
 
-          const reply =
+          let fullText =
             data?.generated_text?.trim() ||
             data?.[0]?.generated_text?.trim() ||
             "🤖 AI Nik: I'm not sure how to answer that right now.";
+
+          // Extract just the model's reply after "Nikhil:"
+          let reply = fullText.split("Nikhil:").pop().trim();
+          if (!reply) {
+            reply = "🤖 AI Nik: I'm not sure how to answer that right now.";
+          }
 
           if (userSocket && userSocket.readyState === WebSocket.OPEN) {
             userSocket.send(`AI Nik: ${reply}`);
