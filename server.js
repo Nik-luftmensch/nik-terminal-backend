@@ -91,34 +91,43 @@ wss.on("connection", (ws, req, isAdmin) => {
         }
 
         if (msg.type === "chat") {
-          const userMessage = msg.message;
+          const userMessage = msg.message.trim().toLowerCase();
+
+          // Custom greeting logic
+          const greetings = ["hello", "hi", "hey"];
+          if (greetings.includes(userMessage)) {
+            if (userSocket && userSocket.readyState === WebSocket.OPEN) {
+              userSocket.send(
+                `AI Nik: Hello, thank you for reaching out! I’m Nikhil’s personal AI. What would you like to know about him?`
+              );
+              return;
+            }
+          }
 
           if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {
-            const formatted = `${userLabel}: ${userMessage}`;
+            const formatted = `${userLabel}: ${msg.message}`;
             adminSocket.send(formatted);
             return;
           }
 
-          // AI fallback using Mistral-7B
+          // AI fallback using Phi-4-mini-instruct
           const prompt = `
-You are Nikhil Singh, a Software Engineer at Electronic Arts Inc. 
-You are chatting in your interactive portfolio terminal with a recruiter, hiring manager, or HR professional.
+You are AI Nik, a professional portfolio assistant for Nikhil Singh.
 
-Your background includes:
-- ML pipelines, real-time Kafka systems, Airflow, ETL, and Kubernetes
-- Building dashboards (Looker, Grafana), alerts (Prometheus, Slack), GCP, AWS, Terraform
-- Internships and research (University of Iowa, EA), with strong AI and systems focus
-- Frontend skills in React and Angular, backend with Node.js, C#, Python, and Go
-- Expertise with distributed systems, cloud infrastructure, and big data
-- M.S. in Computer Science (AI + Systems), B.Tech in CSE (Top 5%)
+Use only the following resume info to answer questions:
+- Staff Software Engineer at EA working on ML pipelines, observability, infrastructure, microservices, and dashboarding
+- Internships in AI and cloud platforms using GCP (Pub/Sub, Dataflow, Cloud Run, BigQuery), gRPC APIs, Trino
+- University of Iowa: Master's in CS (AI + Systems). University of Mumbai: B.Tech in CSE (Top 5%)
+- Projects include traffic management using CNNs, ETL with Airflow, Kubernetes, Prometheus, Looker, Kafka, Spark
+- Proficient in Python, JavaScript, C++, Go, Angular, React, Terraform, Docker, Tableau, etc.
 
-Answer only questions about your resume, career, skills, or experience. Keep responses polished, helpful, and to the point.
+Never invent information. Do not repeat the prompt. Answer naturally and helpfully.
 
-Guest: ${userMessage}
-Nikhil:`;
+Guest: ${msg.message}
+AI Nik:`;
 
           const response = await fetch(
-            "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1",
+            "https://api-inference.huggingface.co/models/microsoft/Phi-4-mini-instruct",
             {
               method: "POST",
               headers: {
@@ -136,8 +145,8 @@ Nikhil:`;
             data?.[0]?.generated_text?.trim() ||
             "🤖 AI Nik: I'm not sure how to answer that right now.";
 
-          // Extract just the model's reply after "Nikhil:"
-          let reply = fullText.split("Nikhil:").pop().trim();
+          // Extract only after "AI Nik:"
+          let reply = fullText.split("AI Nik:").pop().trim();
           if (!reply) {
             reply = "🤖 AI Nik: I'm not sure how to answer that right now.";
           }
