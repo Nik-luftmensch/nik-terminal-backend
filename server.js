@@ -2,8 +2,11 @@ const http = require("http");
 const WebSocket = require("ws");
 const fs = require("fs");
 const path = require("path");
-const fetch = require("node-fetch");
-require("dotenv").config();
+const dotenv = require("dotenv");
+dotenv.config();
+
+const fetch = (...args) =>
+  import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const PORT = process.env.PORT || 3000;
 
