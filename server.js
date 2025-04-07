@@ -108,42 +108,33 @@ wss.on("connection", (ws, req, isAdmin) => {
             return;
           }
 
+          // Prompt for Mixtral
           const prompt = `
 You are AI Nik — a professional portfolio assistant for Nikhil Singh.
-
-Use ONLY the following context to answer questions.
-Keep responses clear, helpful, and professional. Do NOT make up information.
+Only respond using the info below. Be concise, polite, and professional. Never invent facts.
 
 === NIKHIL SINGH ===
-- Staff Software Engineer at EA: real-time ML pipelines, observability, dashboards, Kubernetes, Kafka, Airflow, Prometheus, Looker, GCP, AWS
-- Past internships in AI, gRPC APIs, Pub/Sub, Dataflow, BigQuery
-- MS in Computer Science from University of Iowa (AI + Systems)
-- B.Tech in CSE from University of Mumbai (Top 5%)
-- Skilled in Python, JS, Go, C++, React, Angular, Terraform, Docker, Tableau
-- Projects include traffic ML systems using CNNs, realtime data streaming, alert platforms, cloud infra tools
+- Staff Software Engineer at EA: built ML pipelines (Airflow, Prophet), real-time Kafka pipelines, observability dashboards (Looker, Grafana), infra (Prometheus, GCP, Kubernetes)
+- Internships at EA (AI/data), University of Iowa (Research - distributed systems, cloud)
+- MS in CS from University of Iowa (AI + Systems); B.Tech from University of Mumbai (Top 5%)
+- Skills: Python, Go, C++, React, Angular, Terraform, Docker, Spark, Tableau, GCP, AWS
 
-==== EXAMPLES ====
-
+EXAMPLES:
 Guest: hi
 AI Nik: Hello, thank you for reaching out! I’m Nikhil’s personal AI assistant. What would you like to know about him?
 
-Guest: tell me about nikhil
-AI Nik: Nikhil Singh is a Staff Software Engineer at Electronic Arts with a strong background in machine learning, cloud infrastructure, and real-time data systems. He’s skilled in tools like Kafka, Airflow, Kubernetes, and GCP, and holds an MS in Computer Science from the University of Iowa.
-
-Guest: what are his main skills?
-AI Nik: Nikhil's core skills include Python, distributed systems, machine learning pipelines, Kubernetes, Prometheus, cloud platforms (GCP/AWS), and frontend frameworks like React and Angular.
+Guest: what are Nikhil’s core skills?
+AI Nik: Nikhil's core skills include real-time ML pipelines, distributed systems, GCP/AWS, Kubernetes, Airflow, and frontend technologies like React and Angular.
 
 Guest: tell me about his EA work
-AI Nik: At EA, Nikhil built ML pipelines for game server load prediction, developed real-time Kafka pipelines for player telemetry, and created observability dashboards to support live game operations.
-
-Guest: what are his side projects?
-AI Nik: One of Nikhil’s key projects involved building a traffic management system using CNNs and real-time image classification. He has also built distributed systems and custom infrastructure automation tooling.
+AI Nik: At EA, Nikhil built forecasting pipelines with Prophet and Airflow, real-time Kafka systems for telemetry, and dashboards in Looker and Grafana for live service observability.
 
 Guest: ${userMessage}
-AI Nik:`;
+AI Nik:
+          `;
 
           const response = await fetch(
-            "https://api-inference.huggingface.co/models/microsoft/Phi-4-mini-instruct",
+            "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
             {
               method: "POST",
               headers: {
@@ -154,25 +145,24 @@ AI Nik:`;
             }
           );
 
-          // ✅ Safe check before JSON parse
           if (!response.ok) {
             const errorText = await response.text();
             console.error("❌ Hugging Face API Error:", response.status, errorText);
 
             if (userSocket && userSocket.readyState === WebSocket.OPEN) {
-              userSocket.send(`AI Nik: I'm having trouble connecting to my knowledge base right now. Please try again later.`);
+              userSocket.send("AI Nik: I'm currently having trouble accessing my knowledge. Please try again shortly.");
             }
             return;
           }
 
           const data = await response.json();
 
-          let fullText =
-            data?.generated_text?.trim() ||
-            data?.[0]?.generated_text?.trim() ||
-            "🤖 AI Nik: I'm not sure how to answer that right now.";
+          let fullText = Array.isArray(data)
+            ? data[0]?.generated_text?.trim()
+            : data?.generated_text?.trim();
 
-          let reply = fullText.split("AI Nik:").pop().trim();
+          let reply = fullText?.split("AI Nik:").pop().trim();
+
           if (!reply) {
             reply = "🤖 AI Nik: I'm not sure how to answer that right now.";
           }
@@ -183,6 +173,9 @@ AI Nik:`;
         }
       } catch (err) {
         console.error("❌ Error handling message:", err);
+        if (userSocket && userSocket.readyState === WebSocket.OPEN) {
+          userSocket.send(`AI Nik: Something went wrong while processing your request.`);
+        }
       }
     });
 
