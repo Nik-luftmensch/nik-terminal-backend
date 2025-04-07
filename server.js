@@ -3,9 +3,10 @@ const WebSocket = require("ws");
 const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
-const fetch = require("node-fetch");
-
 dotenv.config();
+
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 const PORT = process.env.PORT || 3000;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
@@ -102,7 +103,7 @@ wss.on("connection", (ws, req, isAdmin) => {
             return;
           }
 
-          const prompt = `
+          const promptText = `
 You are AI Nik — a professional portfolio assistant for Nikhil Singh.
 Only respond using the info below. Be concise, polite, and professional. Never invent facts.
 
@@ -125,11 +126,23 @@ AI Nik:
             headers: {
               Authorization: `Bearer ${OPENROUTER_API_KEY}`,
               "Content-Type": "application/json",
+              "HTTP-Referer": "http://localhost",
+              "X-Title": "nik-terminal"
             },
             body: JSON.stringify({
               model: MODEL,
-              messages: [{ role: "user", content: prompt }],
-            }),
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "text",
+                      text: promptText
+                    }
+                  ]
+                }
+              ]
+            })
           });
 
           if (!response.ok) {
@@ -143,7 +156,7 @@ AI Nik:
           }
 
           const data = await response.json();
-          const reply = data.choices?.[0]?.message?.content?.trim() || "🤖 AI Nik: I'm not sure how to answer that right now.";
+          const reply = data.choices?.[0]?.message?.content?.[0]?.text?.trim() || "🤖 AI Nik: I'm not sure how to answer that right now.";
 
           if (userSocket?.readyState === WebSocket.OPEN) {
             userSocket.send(`AI Nik: ${reply}`);
