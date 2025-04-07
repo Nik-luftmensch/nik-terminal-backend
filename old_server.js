@@ -3,13 +3,12 @@ const WebSocket = require("ws");
 const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
-const fetch = require("node-fetch");
-
 dotenv.config();
 
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
+
 const PORT = process.env.PORT || 3000;
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const MODEL = "google/gemini-2.5-pro-exp-03-25:free";
 
 const server = http.createServer((req, res) => {
   if (req.url === "/admin") {
@@ -55,6 +54,7 @@ wss.on("connection", (ws, req, isAdmin) => {
         return;
       }
 
+      // Skip system control messages
       if (raw.startsWith("__")) return;
 
       if (userSocket?.readyState === WebSocket.OPEN) {
@@ -102,6 +102,7 @@ wss.on("connection", (ws, req, isAdmin) => {
             return;
           }
 
+          // Fallback to AI mode
           const prompt = `
 You are AI Nik — a professional portfolio assistant for Nikhil Singh.
 Only respond using the info below. Be concise, polite, and professional. Never invent facts.
@@ -120,21 +121,21 @@ AI Nik:
             userSocket.send("__ai_typing__");
           }
 
-          const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: MODEL,
-              messages: [{ role: "user", content: prompt }],
-            }),
-          });
+          const response = await fetch(
+            "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${process.env.HF_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ inputs: prompt }),
+            }
+          );
 
           if (!response.ok) {
             const errorText = await response.text();
-            console.error("❌ OpenRouter API Error:", response.status, errorText);
+            console.error("❌ Hugging Face API Error:", response.status, errorText);
 
             if (userSocket?.readyState === WebSocket.OPEN) {
               userSocket.send(`AI Nik: I'm having trouble connecting to my brain. Please try again shortly.`);
@@ -143,7 +144,14 @@ AI Nik:
           }
 
           const data = await response.json();
-          const reply = data.choices?.[0]?.message?.content?.trim() || "🤖 AI Nik: I'm not sure how to answer that right now.";
+          let fullText = Array.isArray(data)
+            ? data[0]?.generated_text?.trim()
+            : data?.generated_text?.trim();
+
+          let reply = fullText?.split("AI Nik:").pop().trim();
+          if (!reply || reply.length < 1) {
+            reply = "🤖 AI Nik: I'm not sure how to answer that right now.";
+          }
 
           if (userSocket?.readyState === WebSocket.OPEN) {
             userSocket.send(`AI Nik: ${reply}`);
