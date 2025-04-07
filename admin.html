@@ -71,32 +71,38 @@
 
     socket.onmessage = async (event) => {
       let msg = typeof event.data === "string" ? event.data : await event.data.text();
-    
+
+      // Handle typing indicators
       try {
         const parsed = JSON.parse(msg);
-    
         if (parsed.type === "__user_typing__" && parsed.name) {
           showTypingStatus(`${parsed.name} is typing...`);
           return;
         }
       } catch {
-        // Not JSON, proceed
+        // Not JSON
       }
-    
+
+      if (msg === "__ai_typing__") {
+        showTypingStatus("AI Nik is typing...");
+        return;
+      }
+
       clearTypingStatus();
-    
-      const userMessage = msg.split(": ");
-      const userName = userMessage[0];
-      const message = userMessage[1];
-    
+
+      // Parse label: "User: message" or "AI Nik: ..."
+      const colonIndex = msg.indexOf(": ");
+      const userName = msg.slice(0, colonIndex);
+      const message = msg.slice(colonIndex + 2);
+
       appendToChat(`${userName}: ${message}`);
     };
 
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && input.value.trim() !== "") {
         const message = input.value.trim();
-        socket.send(message);  // Sending message to backend
-        appendToChat("You: " + message);  // Show in chat immediately
+        socket.send(message);
+        appendToChat("Nik: " + message);  // Admin label
         input.value = "";
         clearTypingStatus();
       }
@@ -104,12 +110,12 @@
 
     input.addEventListener("input", () => {
       if (socket.readyState === WebSocket.OPEN) {
-        socket.send("__typing__");  // Emit typing status to backend
+        socket.send("__typing__");
       }
       clearTimeout(typingTimeout);
       typingTimeout = setTimeout(() => {
         clearTypingStatus();
-      }, 1500); // Clear after 1.5s of no typing
+      }, 1500);
     });
 
     function appendToChat(text) {
