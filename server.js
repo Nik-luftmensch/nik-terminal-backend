@@ -5,7 +5,6 @@ const path = require("path");
 const dotenv = require("dotenv");
 dotenv.config();
 
-// Fix fetch for CommonJS
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
@@ -71,6 +70,7 @@ wss.on("connection", (ws, req, isAdmin) => {
     ws.on("message", async (raw) => {
       try {
         const msg = JSON.parse(raw);
+        const userMessage = msg.message.trim();
 
         if (msg.type === "identity") {
           userName = msg.name || "User";
@@ -91,14 +91,12 @@ wss.on("connection", (ws, req, isAdmin) => {
         }
 
         if (msg.type === "chat") {
-          const userMessage = msg.message.trim().toLowerCase();
-
-          // Custom greeting logic
-          const greetings = ["hello", "hi", "hey"];
-          if (greetings.includes(userMessage)) {
+          // Greeting shortcut
+          const greetings = ["hi", "hello", "hey"];
+          if (greetings.includes(userMessage.toLowerCase())) {
             if (userSocket && userSocket.readyState === WebSocket.OPEN) {
               userSocket.send(
-                `AI Nik: Hello, thank you for reaching out! I’m Nikhil’s personal AI. What would you like to know about him?`
+                `AI Nik: Hello, thank you for reaching out! I’m Nikhil’s personal AI assistant. What would you like to know about him?`
               );
               return;
             }
@@ -110,20 +108,38 @@ wss.on("connection", (ws, req, isAdmin) => {
             return;
           }
 
-          // AI fallback using Phi-4-mini-instruct
           const prompt = `
-You are AI Nik, a professional portfolio assistant for Nikhil Singh.
+You are AI Nik — a professional portfolio assistant for Nikhil Singh.
 
-Use only the following resume info to answer questions:
-- Staff Software Engineer at EA working on ML pipelines, observability, infrastructure, microservices, and dashboarding
-- Internships in AI and cloud platforms using GCP (Pub/Sub, Dataflow, Cloud Run, BigQuery), gRPC APIs, Trino
-- University of Iowa: Master's in CS (AI + Systems). University of Mumbai: B.Tech in CSE (Top 5%)
-- Projects include traffic management using CNNs, ETL with Airflow, Kubernetes, Prometheus, Looker, Kafka, Spark
-- Proficient in Python, JavaScript, C++, Go, Angular, React, Terraform, Docker, Tableau, etc.
+Use ONLY the following context to answer questions.
+Keep responses clear, helpful, and professional. Do NOT make up information.
 
-Never invent information. Do not repeat the prompt. Answer naturally and helpfully.
+=== NIKHIL SINGH ===
+- Staff Software Engineer at EA: real-time ML pipelines, observability, dashboards, Kubernetes, Kafka, Airflow, Prometheus, Looker, GCP, AWS
+- Past internships in AI, gRPC APIs, Pub/Sub, Dataflow, BigQuery
+- MS in Computer Science from University of Iowa (AI + Systems)
+- B.Tech in CSE from University of Mumbai (Top 5%)
+- Skilled in Python, JS, Go, C++, React, Angular, Terraform, Docker, Tableau
+- Projects include traffic ML systems using CNNs, realtime data streaming, alert platforms, cloud infra tools
 
-Guest: ${msg.message}
+==== EXAMPLES ====
+
+Guest: hi
+AI Nik: Hello, thank you for reaching out! I’m Nikhil’s personal AI assistant. What would you like to know about him?
+
+Guest: tell me about nikhil
+AI Nik: Nikhil Singh is a Staff Software Engineer at Electronic Arts with a strong background in machine learning, cloud infrastructure, and real-time data systems. He’s skilled in tools like Kafka, Airflow, Kubernetes, and GCP, and holds an MS in Computer Science from the University of Iowa.
+
+Guest: what are his main skills?
+AI Nik: Nikhil's core skills include Python, distributed systems, machine learning pipelines, Kubernetes, Prometheus, cloud platforms (GCP/AWS), and frontend frameworks like React and Angular.
+
+Guest: tell me about his EA work
+AI Nik: At EA, Nikhil built ML pipelines for game server load prediction, developed real-time Kafka pipelines for player telemetry, and created observability dashboards to support live game operations.
+
+Guest: what are his side projects?
+AI Nik: One of Nikhil’s key projects involved building a traffic management system using CNNs and real-time image classification. He has also built distributed systems and custom infrastructure automation tooling.
+
+Guest: ${userMessage}
 AI Nik:`;
 
           const response = await fetch(
@@ -138,6 +154,17 @@ AI Nik:`;
             }
           );
 
+          // ✅ Safe check before JSON parse
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error("❌ Hugging Face API Error:", response.status, errorText);
+
+            if (userSocket && userSocket.readyState === WebSocket.OPEN) {
+              userSocket.send(`AI Nik: I'm having trouble connecting to my knowledge base right now. Please try again later.`);
+            }
+            return;
+          }
+
           const data = await response.json();
 
           let fullText =
@@ -145,7 +172,6 @@ AI Nik:`;
             data?.[0]?.generated_text?.trim() ||
             "🤖 AI Nik: I'm not sure how to answer that right now.";
 
-          // Extract only after "AI Nik:"
           let reply = fullText.split("AI Nik:").pop().trim();
           if (!reply) {
             reply = "🤖 AI Nik: I'm not sure how to answer that right now.";
