@@ -6,7 +6,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const fetch = (...args) =>
-  import('node-fetch').then(({ default: fetch }) => fetch(...args));
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 const PORT = process.env.PORT || 3000;
 
@@ -79,10 +79,12 @@ wss.on("connection", (ws, req, isAdmin) => {
 
         if (msg.type === "typing") {
           if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {
-            adminSocket.send(JSON.stringify({
-              type: "__user_typing__",
-              name: userName
-            }));
+            adminSocket.send(
+              JSON.stringify({
+                type: "__user_typing__",
+                name: userName,
+              })
+            );
           }
           return;
         }
@@ -96,36 +98,43 @@ wss.on("connection", (ws, req, isAdmin) => {
             return;
           }
 
-          // 🤖 AI Fallback using Hugging Face
+          // 🧠 AI Fallback (when admin not connected)
           const prompt = `
-You are Nikhil Singh, a Software Engineer at Electronic Arts with experience in cloud computing, distributed systems, AI/ML, and full-stack development. You are responding to questions in your interactive terminal-style portfolio.
+You are Nikhil Singh, a Software Engineer at Electronic Arts. You are answering questions from a guest interacting with your terminal-style portfolio. Stay professional and only reply about your skills, work experience, education, or resume.
 
-Only answer questions related to your resume, skills, experience, or education. Do not guess or go off-topic.
+Background:
+- Staff Software Engineer at EA
+- M.S. in Computer Science, University of Iowa
+- B.Tech in CSE, University of Mumbai
+- Former roles at EA, Nvent, and University of Iowa
+- Languages: C++, Python, Java, Go, C#
+- Tools: Docker, Kubernetes, Terraform, Airflow, Spark
+- Cloud: AWS, GCP
+- Data: Tableau, Power BI, Looker Studio
+- Web: Angular, React, Node.js
 
-Here is your professional background:
-
-- Roles: Software Engineer at EA, former Research Assistant and Intern at EA and University of Iowa, ex-Senior SDE at Nvent
-- Languages: Python, JavaScript, C++, C#, Go
-- Frameworks & Tools: Angular, React, Airflow, Terraform, Spark, Neo4j, Docker, Kubernetes
-- Cloud: GCP, AWS
-- Data Tools: Looker Studio, Tableau, Power BI, Grafana
-- Education: M.S. in Computer Science (AI & Systems), University of Iowa; B.Tech in CSE, University of Mumbai
-
-User: ${userMessage}
+Guest: ${userMessage}
 Nikhil:
 `;
 
-          const response = await fetch("https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${process.env.HF_API_KEY}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ inputs: prompt })
-          });
+          const response = await fetch(
+            "https://api-inference.huggingface.co/models/microsoft/phi-1_5",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${process.env.HF_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ inputs: prompt }),
+            }
+          );
 
           const data = await response.json();
-          const reply = data.generated_text || "🤖 AI Nik: I'm not sure how to answer that right now.";
+
+          const reply =
+            data?.generated_text?.trim() ||
+            data?.[0]?.generated_text?.trim() ||
+            "🤖 AI Nik: I'm not sure how to answer that right now.";
 
           if (userSocket && userSocket.readyState === WebSocket.OPEN) {
             userSocket.send(`AI Nik: ${reply}`);
