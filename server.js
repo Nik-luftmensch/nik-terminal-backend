@@ -11,7 +11,7 @@ const fetch = (...args) =>
 
 const PORT = process.env.PORT || 3000;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const MODEL = "anthropic/claude-3-haiku:free";
+const MODEL = "microsoft/mai-ds-r1:free";
 
 const server = http.createServer((req, res) => {
   if (req.url === "/admin") {
