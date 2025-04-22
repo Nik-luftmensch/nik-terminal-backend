@@ -11,7 +11,7 @@ const fetch = (...args) =>
 
 const PORT = process.env.PORT || 3000;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const MODEL = "thudm/glm-z1-32b:free";
+const MODEL = "mistralai/mistral-small-3.1-24b-instruct";
 
 const server = http.createServer((req, res) => {
   if (req.url === "/admin") {
